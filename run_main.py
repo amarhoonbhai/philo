@@ -1,26 +1,34 @@
 #!/usr/bin/env python3
-import os, sys, re, asyncio
+import sys, os
+from pathlib import Path
 
-# Hard fail if the token isn't present/valid
-def require_token(name: str, value: str):
-    if not value or not re.fullmatch(r"\d+:[\w\-]{30,}", value):
+def _load_env():
+    for p in (Path.cwd() / ".env", Path("/opt/spinify/.env")):
+        if p.exists():
+            try:
+                from dotenv import load_dotenv
+                load_dotenv(p, override=True)
+            except Exception:
+                pass
+
+_load_env()
+
+from aiogram.utils.token import validate_token
+from spinify.common.config import MAIN_BOT_TOKEN
+
+import asyncio
+from spinify.main_bot.main import main as mainbot_main
+
+def _ensure_token():
+    try:
+        validate_token(MAIN_BOT_TOKEN)
+    except Exception:
         sys.stderr.write(
-            f"[run_main] {name} missing/invalid in environment.\n"
-            f"  set it like: export {name}=1234567890:AA...  and re-run\n"
+            "[run_main] MAIN_BOT_TOKEN missing/invalid in environment.\n"
+            "  set it like: export MAIN_BOT_TOKEN=1234567890:AA...  and re-run\n"
         )
-        sys.exit(2)
-
-def main_entry():
-    # optional: quiet tzlocal warning and set consistent tz
-    os.environ.setdefault("TZ", os.getenv("TZ", "Asia/Kolkata"))
-
-    # read token from ENV (config.py also pulls from env, but we validate early here)
-    from spinify.common.config import MAIN_BOT_TOKEN
-    require_token("MAIN_BOT_TOKEN", MAIN_BOT_TOKEN)
-
-    # run the bot
-    from spinify.main_bot.main import main
-    asyncio.run(main())
+        sys.exit(1)
 
 if __name__ == "__main__":
-    main_entry()
+    _ensure_token()
+    asyncio.run(mainbot_main())
