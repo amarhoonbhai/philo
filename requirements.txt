@@ -1,5 +1,4 @@
-aiogram>=3.5
-telethon>=1.36
-apscheduler>=3.10
-cryptography>=42
-pydantic>=2
+aiogram>=3.5,<4.0
+telethon>=1.36,<2.0
+apscheduler>=3.10,<3.11
+pytz>=2024.1
