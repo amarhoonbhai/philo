@@ -87,6 +87,20 @@ def init_bot_tables():
     c.commit(); c.close()
     _try_migrate_groups_table()
 
+# Ensure all per-user rows exist (FIX for import error)
+def ensure_user(tg_id: int):
+    """
+    Create all required rows for a new user across tables.
+    Idempotent: safe to call many times.
+    """
+    c = _conn()
+    c.execute("INSERT OR IGNORE INTO users(tg_id) VALUES (?)", (tg_id,))
+    c.execute("INSERT OR IGNORE INTO gates(tg_id, agreed_tos) VALUES (?, 0)", (tg_id,))
+    c.execute("INSERT OR IGNORE INTO schedules(tg_id) VALUES (?)", (tg_id,))
+    c.execute("INSERT OR IGNORE INTO counters(tg_id) VALUES (?)", (tg_id,))
+    c.execute("INSERT OR IGNORE INTO subs(tg_id) VALUES (?)", (tg_id,))
+    c.commit(); c.close()
+
 # --- MIGRATIONS ---
 def _try_migrate_groups_table():
     c = _conn()
