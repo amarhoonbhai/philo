@@ -16,4 +16,3 @@ def inline_login(url, guide_url):
         [InlineKeyboardButton(text="🔐 Open Login Bot", url=url)],
         [InlineKeyboardButton(text="❓ How to", url=guide_url)]
     ])
-  
