@@ -1,11 +1,11 @@
-import asyncio, os
+import asyncio
 from aiogram import Bot, Dispatcher, F
 from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
-
 from telethon.errors import SessionPasswordNeededError
 
 from ..common.config import LOGIN_BOT_TOKEN
@@ -21,7 +21,10 @@ class S(StatesGroup):
     otp = State()
     twofa = State()
 
-bot = Bot(LOGIN_BOT_TOKEN, parse_mode=ParseMode.HTML)
+bot = Bot(
+    LOGIN_BOT_TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+)
 dp = Dispatcher()
 clients = {}
 
@@ -108,4 +111,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-  
+    
