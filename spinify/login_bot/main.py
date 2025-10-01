@@ -1,6 +1,5 @@
 # spinify/login_bot/main.py
 import asyncio
-import socket
 import aiohttp
 
 from aiogram import Bot, Dispatcher, F
@@ -19,15 +18,14 @@ from ..common.db import init_core, init_bot_tables, ensure_user
 from .keypad import otp_keyboard
 from .telethon_client import TLClient
 from .attach import attach_and_prepare
-from .branding import prompt_branding  # safe, opt-in helper
+from .branding import prompt_branding  # optional, safe opt-in
 
-# ----------------------------
-# Aiogram bot factory (force IPv4)
-# ----------------------------
+# NOTE: aiogram 3.7's AiohttpSession does not accept a "connector=" kwarg.
+# If your host has flaky IPv6, prefer IPv4 at OS level (e.g., edit /etc/gai.conf).
+
 def _make_bot() -> Bot:
     session = AiohttpSession(
-        connector=aiohttp.TCPConnector(family=socket.AF_INET),  # force IPv4
-        timeout=aiohttp.ClientTimeout(total=30),                # sane timeout
+        timeout=aiohttp.ClientTimeout(total=30)   # sane timeout
     )
     return Bot(
         LOGIN_BOT_TOKEN,
@@ -47,9 +45,7 @@ class S(StatesGroup):
 
 @dp.message(CommandStart())
 async def start(m: Message, state: FSMContext):
-    # DB bootstrap (idempotent) and ensure user row
     init_core(); init_bot_tables(); ensure_user(m.from_user.id)
-
     await state.clear()
     await m.answer(
         "<b>Step 1</b> — Send your <b>API_ID</b>.\n"
@@ -122,14 +118,11 @@ async def try_sign_in(c: CallbackQuery, state: FSMContext):
         await c.answer()
         return
 
-    # Save session & do post-attach steps
     await attach_and_prepare(c.from_user.id, tl, bot_username=None)
     await tl.disconnect()
     clients.pop(c.from_user.id, None)
 
-    # Offer optional branding (name suffix + bio), safe & opt-in
-    await prompt_branding(c.message.bot, c.from_user.id)
-
+    await prompt_branding(c.message.bot, c.from_user.id)  # safe opt-in
     await c.message.answer("✅ Session saved.\nYou can go back to the main bot now.")
     await state.clear()
     await c.answer()
@@ -142,9 +135,7 @@ async def got_twofa(m: Message, state: FSMContext):
     await tl.disconnect()
     clients.pop(m.from_user.id, None)
 
-    # Offer optional branding after successful 2FA attach
     await prompt_branding(m.bot, m.from_user.id)
-
     await m.answer("✅ 2FA accepted. Session saved.\nYou can go back to the main bot now.")
     await state.clear()
 
