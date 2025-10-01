@@ -5,35 +5,68 @@ from .config import DB_PATH
 Path(DB_PATH).touch(exist_ok=True)
 
 def _conn():
-    c = sqlite3.connect(DB_PATH); c.row_factory = sqlite3.Row; return c
+    c = sqlite3.connect(DB_PATH)
+    c.row_factory = sqlite3.Row
+    return c
 
 def init_core():
     c = _conn()
     c.executescript("""
-    CREATE TABLE IF NOT EXISTS users(tg_id INTEGER PRIMARY KEY, plan TEXT DEFAULT 'free');
-    CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT);
-    CREATE TABLE IF NOT EXISTS gates(tg_id INTEGER PRIMARY KEY, agreed_tos INTEGER DEFAULT 0);
-    """); c.commit(); c.close()
+    CREATE TABLE IF NOT EXISTS users(
+      tg_id INTEGER PRIMARY KEY,
+      plan TEXT DEFAULT 'free'
+    );
+    CREATE TABLE IF NOT EXISTS settings(
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+    CREATE TABLE IF NOT EXISTS gates(
+      tg_id INTEGER PRIMARY KEY,
+      agreed_tos INTEGER DEFAULT 0
+    );
+    """)
+    c.commit(); c.close()
 
 def init_bot_tables():
     c = _conn()
     c.executescript("""
     CREATE TABLE IF NOT EXISTS sessions(
-      id INTEGER PRIMARY KEY AUTOINCREMENT, tg_id INTEGER, string_session TEXT, active INTEGER DEFAULT 1, created_at INTEGER
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tg_id INTEGER,
+      string_session TEXT,
+      active INTEGER DEFAULT 1,
+      created_at INTEGER
     );
     CREATE TABLE IF NOT EXISTS groups(
-      id INTEGER PRIMARY KEY AUTOINCREMENT, tg_id INTEGER, peer_id INTEGER, title TEXT, active INTEGER DEFAULT 1, last_sent_at TEXT
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tg_id INTEGER,
+      peer_id INTEGER,
+      title TEXT,
+      active INTEGER DEFAULT 1,
+      last_sent_at TEXT
     );
     CREATE TABLE IF NOT EXISTS ads(
-      id INTEGER PRIMARY KEY AUTOINCREMENT, tg_id INTEGER, msg_link TEXT, weight INTEGER DEFAULT 1, active INTEGER DEFAULT 1
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tg_id INTEGER,
+      msg_link TEXT,
+      weight INTEGER DEFAULT 1,
+      active INTEGER DEFAULT 1
     );
     CREATE TABLE IF NOT EXISTS schedules(
-      tg_id INTEGER PRIMARY KEY, interval_sec INTEGER DEFAULT 1200, window_start TEXT DEFAULT '06:00', window_end TEXT DEFAULT '12:00', running INTEGER DEFAULT 0
+      tg_id INTEGER PRIMARY KEY,
+      interval_sec INTEGER DEFAULT 1200,
+      window_start TEXT DEFAULT '06:00',
+      window_end TEXT DEFAULT '12:00',
+      running INTEGER DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS counters(
-      tg_id INTEGER PRIMARY KEY, total_sent INTEGER DEFAULT 0, ads_sent INTEGER DEFAULT 0, last_sent TEXT
+      tg_id INTEGER PRIMARY KEY,
+      total_sent INTEGER DEFAULT 0,
+      ads_sent INTEGER DEFAULT 0,
+      last_sent TEXT
     );
     """)
+    # ensure per-user rows exist if users already inserted
     c.execute("INSERT OR IGNORE INTO schedules(tg_id) SELECT tg_id FROM users;")
     c.execute("INSERT OR IGNORE INTO counters(tg_id)  SELECT tg_id FROM users;")
     c.commit(); c.close()
@@ -46,16 +79,48 @@ def ensure_user(tg_id:int):
     c.execute("INSERT OR IGNORE INTO counters(tg_id)  VALUES(?)",(tg_id,))
     c.commit(); c.close()
 
-def set_setting(k,v):
-    c=_conn(); c.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(k,v)); c.commit(); c.close()
-def get_setting(k):
-    c=_conn(); r=c.execute("SELECT value FROM settings WHERE key=?",(k,)).fetchone(); c.close(); return r["value"] if r else None
+def set_setting(k:str, v:str):
+    c=_conn()
+    c.execute("""
+        INSERT INTO settings(key,value) VALUES(?,?)
+        ON CONFLICT(key) DO UPDATE SET value=excluded.value
+    """,(k,v))
+    c.commit(); c.close()
 
-def set_agreed(tg_id,yes): c=_conn(); c.execute("UPDATE gates SET agreed_tos=? WHERE tg_id=?",(1 if yes else 0,tg_id)); c.commit(); c.close()
-def agreed(tg_id): c=_conn(); r=c.execute("SELECT agreed_tos FROM gates WHERE tg_id=?",(tg_id,)).fetchone(); c.close(); return bool(r and r["agreed_tos"])
+def get_setting(k:str):
+    c=_conn()
+    r=c.execute("SELECT value FROM settings WHERE key=?", (k,)).fetchone()
+    c.close()
+    return r["value"] if r else None
 
-def has_session(tg_id:int)->bool:
-    c=_conn(); r=c.execute("SELECT 1 FROM sessions WHERE tg_id=? AND active=1 LIMIT 1",(tg_id,)).fetchone(); c.close(); return bool(r)
+def set_agreed(tg_id:int, yes:bool):
+    c=_conn()
+    c.execute("UPDATE gates SET agreed_tos=? WHERE tg_id=?", (1 if yes else 0, tg_id))
+    c.commit(); c.close()
+
+def agreed(tg_id:int) -> bool:
+    c=_conn()
+    r=c.execute("SELECT agreed_tos FROM gates WHERE tg_id=?", (tg_id,)).fetchone()
+    c.close()
+    return bool(r and r["agreed_tos"])
+
+def has_session(tg_id:int) -> bool:
+    c=_conn()
+    r=c.execute("SELECT 1 FROM sessions WHERE tg_id=? AND active=1 LIMIT 1", (tg_id,)).fetchone()
+    c.close()
+    return bool(r)
+
+def save_session(tg_id:int, enc_string_session:str):
+    """Used by login_bot.attach.attach_and_prepare"""
+    c=_conn()
+    c.execute("""
+        INSERT INTO sessions(tg_id, string_session, active, created_at)
+        VALUES(?, ?, 1, strftime('%s','now'))
+    """,(tg_id, enc_string_session))
+    c.commit(); c.close()
 
 def set_running(tg_id:int, on:bool):
-    c=_conn(); c.execute("UPDATE schedules SET running=? WHERE tg_id=?",(1 if on else 0, tg_id)); c.commit(); c.close()
+    c=_conn()
+    c.execute("UPDATE schedules SET running=? WHERE tg_id=?", (1 if on else 0, tg_id))
+    c.commit(); c.close()
+    
