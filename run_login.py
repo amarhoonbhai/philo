@@ -1,22 +1,35 @@
 #!/usr/bin/env python3
-import os, sys, re, asyncio
+import sys, os
+from pathlib import Path
 
-def require_token(name: str, value: str):
-    if not value or not re.fullmatch(r"\d+:[\w\-]{30,}", value):
+def _load_env():
+    # Load .env from repo root and /opt/spinify/.env (if present)
+    for p in (Path.cwd() / ".env", Path("/opt/spinify/.env")):
+        if p.exists():
+            try:
+                from dotenv import load_dotenv
+                load_dotenv(p, override=True)
+            except Exception:
+                pass
+
+_load_env()
+
+from aiogram.utils.token import validate_token
+from spinify.common.config import LOGIN_BOT_TOKEN
+
+import asyncio
+from spinify.login_bot.main import main as login_main
+
+def _ensure_token():
+    try:
+        validate_token(LOGIN_BOT_TOKEN)
+    except Exception:
         sys.stderr.write(
-            f"[run_login] {name} missing/invalid in environment.\n"
-            f"  set it like: export {name}=1234567890:AA...  and re-run\n"
+            "[run_login] LOGIN_BOT_TOKEN missing/invalid in environment.\n"
+            "  set it like: export LOGIN_BOT_TOKEN=1234567890:AA...  and re-run\n"
         )
-        sys.exit(2)
-
-def main_entry():
-    os.environ.setdefault("TZ", os.getenv("TZ", "Asia/Kolkata"))
-
-    from spinify.common.config import LOGIN_BOT_TOKEN
-    require_token("LOGIN_BOT_TOKEN", LOGIN_BOT_TOKEN)
-
-    from spinify.login_bot.main import main
-    asyncio.run(main())
+        sys.exit(1)
 
 if __name__ == "__main__":
-    main_entry()
+    _ensure_token()
+    asyncio.run(login_main())
