@@ -1,39 +1,26 @@
+# spinify/common/config.py
 import os
+from pathlib import Path
 
-def _env_str(k, d=""):
-    return os.getenv(k, d)
+# --- tokens & usernames ---
+MAIN_BOT_TOKEN  = os.getenv("MAIN_BOT_TOKEN", "").strip()
+LOGIN_BOT_TOKEN = os.getenv("LOGIN_BOT_TOKEN", "").strip()
 
-def _env_int(k, d=0):
-    try:
-        return int(os.getenv(k, str(d)))
-    except Exception:
-        return d
+MAIN_BOT_USERNAME  = os.getenv("MAIN_BOT_USERNAME", "SpinifyAdsBot").lstrip("@")
+LOGIN_BOT_USERNAME = os.getenv("LOGIN_BOT_USERNAME", "SpinifyLoginBot").lstrip("@")
 
-# --- Tokens & usernames ---
-MAIN_BOT_TOKEN      = _env_str("MAIN_BOT_TOKEN", "")
-LOGIN_BOT_TOKEN     = _env_str("LOGIN_BOT_TOKEN", "")
-LOGIN_BOT_USERNAME  = _env_str("LOGIN_BOT_USERNAME", "SpinifyLoginBot")
-MAIN_BOT_USERNAME   = _env_str("MAIN_BOT_USERNAME", "SpinifyAdsBot")
+SUPPORT_URL = os.getenv("SUPPORT_URL", "https://t.me/AnimeLoungeGc").strip()
+PREMIUM_CONTACT_USERNAME = os.getenv("PREMIUM_CONTACT_USERNAME", "Spinify").lstrip("@")
 
-# --- Links & UX ---
-QUICK_GUIDE_URL     = _env_str("QUICK_GUIDE_URL", "https://t.me/TheTrafficZone")
-PREMIUM_URL         = _env_str("PREMIUM_URL", "https://t.me/PhiloBots")
-SUPPORT_URL         = _env_str("SUPPORT_URL", "https://t.me/AnimeLoungeGc")
+# --- gating / enforcement ---
+# Public channel username (with or without '@' is fine)
+GATE_PUBLIC_USERNAME = os.getenv("GATE_PUBLIC_USERNAME", "@PhiloBots").strip()
 
-# Premium contact
-PREMIUM_CONTACT_USERNAME = _env_str("PREMIUM_CONTACT_USERNAME", "Spinify")
-PREMIUM_CONTACT_URL = f"https://t.me/{PREMIUM_CONTACT_USERNAME}"
+# Enable/disable enforcement quickly for testing (0 = off, 1 = on)
+GATE_ENFORCE = os.getenv("GATE_ENFORCE", "1") == "1"
 
-# Gate (public channel & private GC)
-GATE_PUBLIC_USERNAME = _env_str("GATE_PUBLIC_USERNAME", "@PhiloBots")
-GATE_PRIVATE_INVITE  = _env_str("GATE_PRIVATE_INVITE", "https://t.me/+X83tuZcK0FkwZWY1")
+# Private gate chat id is stored in DB settings key: gate.private_id (numeric -100xxxx)
+# (Use: sqlite3 spinify.sqlite3 "INSERT INTO settings(key,value) VALUES('gate.private_id','-1001234567890') ON CONFLICT(key) DO UPDATE SET value=excluded.value;")
 
-# Owner & storage
-OWNER_ID            = _env_int("OWNER_ID", 5365568568)
-DB_PATH             = _env_str("DB_PATH", "spinify.sqlite3")
-ENCRYPT_KEY         = _env_str("ENCRYPT_KEY", "")
-TZ                  = _env_str("TZ", "Asia/Kolkata")
-
-# Ads engine knobs
-COOLDOWN_MIN = _env_int("COOLDOWN_MIN", 45)  # minutes between sends per group
-MAX_PER_TICK = _env_int("MAX_PER_TICK", 3)   # how many groups to hit per scheduler tick
+# --- database path ---
+DB_PATH = os.getenv("DB_PATH", str(Path(__file__).resolve().parents[2] / "spinify.sqlite3"))
