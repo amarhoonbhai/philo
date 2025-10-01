@@ -1,7 +1,5 @@
 # spinify/login_bot/main.py
 import asyncio
-import aiohttp
-
 from aiogram import Bot, Dispatcher, F
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
@@ -20,13 +18,9 @@ from .telethon_client import TLClient
 from .attach import attach_and_prepare
 from .branding import prompt_branding  # optional, safe opt-in
 
-# NOTE: aiogram 3.7's AiohttpSession does not accept a "connector=" kwarg.
-# If your host has flaky IPv6, prefer IPv4 at OS level (e.g., edit /etc/gai.conf).
-
 def _make_bot() -> Bot:
-    session = AiohttpSession(
-        timeout=aiohttp.ClientTimeout(total=30)   # sane timeout
-    )
+    # aiogram 3.7 expects "timeout" as seconds (int/float), not ClientTimeout
+    session = AiohttpSession(timeout=30)
     return Bot(
         LOGIN_BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
@@ -145,3 +139,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    
