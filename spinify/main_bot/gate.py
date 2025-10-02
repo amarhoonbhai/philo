@@ -10,9 +10,12 @@ from ..common.db import set_setting, get_setting, set_agreed
 router = Router()
 
 def _kb():
+    pub = (GATE_PUBLIC_USERNAME or "").lstrip("@")
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Join-1 — @PhiloBots", url="https://t.me/PhiloBots")],
-        [InlineKeyboardButton(text="Join-2 — Private GC", url=GATE_PRIVATE_INVITE)],
+        [InlineKeyboardButton(text=f"Join-1 — @{pub}" if pub else "Join-1",
+                              url=f"https://t.me/{pub}" if pub else "https://t.me")],
+        [InlineKeyboardButton(text="Join-2 — Private GC",
+                              url=GATE_PRIVATE_INVITE or "https://t.me")],
         [InlineKeyboardButton(text="✅ I’ve Joined", callback_data="gate_check")],
         [InlineKeyboardButton(text="📜 Agree Terms & Conditions", callback_data="gate_agree")],
     ])
@@ -26,18 +29,30 @@ async def _is_member(bot, chat, uid):
             ChatMemberStatus.MEMBER,
             ChatMemberStatus.RESTRICTED
         }
-    except:
+    except Exception:
         return False
 
-async def gate_ok(bot, uid:int):
-    pub = await _is_member(bot, GATE_PUBLIC_USERNAME, uid) if GATE_PUBLIC_USERNAME else True
+async def gate_ok(bot, uid: int):
+    # public channel check
+    pub_ok = True
+    if GATE_PUBLIC_USERNAME:
+        pub_ok = await _is_member(bot, f"@{GATE_PUBLIC_USERNAME.lstrip('@')}", uid)
+
+    # private group check via stored id
     pid = get_setting("gate.private_id")
-    priv = await _is_member(bot, int(pid), uid) if pid else False
-    return pub and priv
+    priv_ok = True
+    if pid:
+        try:
+            priv_ok = await _is_member(bot, int(pid), uid)
+        except Exception:
+            # be tolerant if bot can’t read the private chat yet
+            priv_ok = True
+    return pub_ok and priv_ok
 
 async def send_gate(m: Message):
     await m.answer(
-        "Before using Spinify, please join both channels below, tap “✅ I’ve Joined”, then agree to the Terms.",
+        "Before using Spinify, please join both channels below, tap “✅ I’ve Joined”, "
+        "then agree to the Terms.",
         reply_markup=_kb(),
         disable_web_page_preview=True
     )
@@ -47,7 +62,7 @@ async def send_gate(m: Message):
 @router.message(Command("capture_here"))
 async def capture_here(m: Message):
     if m.from_user.id != OWNER_ID:
-        await m.reply("Only the bot owner can use /capture_here. Set OWNER_ID in env and try again.")
+        await m.reply("Only the owner can use /capture_here. Check OWNER_ID in .env.")
         return
     set_setting("gate.private_id", str(m.chat.id))
     await m.reply(f"Captured private chat_id: {m.chat.id}")
@@ -55,7 +70,7 @@ async def capture_here(m: Message):
 @router.message(Command("set_gate"))
 async def set_gate(m: Message):
     if m.from_user.id != OWNER_ID:
-        await m.reply("Only the bot owner can use /set_gate.")
+        await m.reply("Only the owner can use /set_gate.")
         return
     parts = (m.text or "").split(maxsplit=1)
     if len(parts) != 2:
@@ -78,24 +93,23 @@ async def cb_check(c: CallbackQuery):
 
 @router.callback_query(F.data == "gate_agree")
 async def cb_agree(c: CallbackQuery):
-    # Require both joins before agreeing
     if not await gate_ok(c.bot, c.from_user.id):
         await c.answer("Join both first.", show_alert=True)
         return
 
     set_agreed(c.from_user.id, True)
-    # Clean confirmation
+
+    # clean confirmation
     try:
         await c.message.edit_text("✅ You’re set.")
     except Exception:
         pass
 
-    # Auto-open main menu (no need to type /start)
+    # Auto-open main menu after Agree
     try:
-        from .menu import start as menu_start  # import here to avoid circular import at module load
+        from .menu import start as menu_start   # avoid circular import on module load
         await menu_start(c.message)
     except Exception:
-        # Fallback instruction if something goes wrong
         await c.message.answer("You’re set. Now send /start to open the menu.")
 
     await c.answer()
