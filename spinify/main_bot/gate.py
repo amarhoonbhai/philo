@@ -1,4 +1,3 @@
-# spinify/main_bot/gate.py
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
@@ -33,31 +32,17 @@ async def _is_member(bot, chat, uid):
         return False
 
 async def gate_ok(bot, uid: int):
-    # public channel check
     pub_ok = True
     if GATE_PUBLIC_USERNAME:
         pub_ok = await _is_member(bot, f"@{GATE_PUBLIC_USERNAME.lstrip('@')}", uid)
-
-    # private group check via stored id
     pid = get_setting("gate.private_id")
     priv_ok = True
     if pid:
         try:
             priv_ok = await _is_member(bot, int(pid), uid)
         except Exception:
-            # be tolerant if bot can’t read the private chat yet
             priv_ok = True
     return pub_ok and priv_ok
-
-async def send_gate(m: Message):
-    await m.answer(
-        "Before using Spinify, please join both channels below, tap “✅ I’ve Joined”, "
-        "then agree to the Terms.",
-        reply_markup=_kb(),
-        disable_web_page_preview=True
-    )
-
-# ---------- Owner utilities ----------
 
 @router.message(Command("capture_here"))
 async def capture_here(m: Message):
@@ -84,8 +69,6 @@ async def set_gate(m: Message):
 async def whoami(m: Message):
     await m.reply(f"Your user id: <code>{m.from_user.id}</code>", parse_mode="HTML")
 
-# ---------- Gate callbacks ----------
-
 @router.callback_query(F.data == "gate_check")
 async def cb_check(c: CallbackQuery):
     ok = await gate_ok(c.bot, c.from_user.id)
@@ -96,19 +79,18 @@ async def cb_agree(c: CallbackQuery):
     if not await gate_ok(c.bot, c.from_user.id):
         await c.answer("Join both first.", show_alert=True)
         return
-
     set_agreed(c.from_user.id, True)
-
-    # clean confirmation
     try:
         await c.message.edit_text("✅ You’re set.")
     except Exception:
         pass
-
-    # Auto-open main menu after Agree
+    # Auto-open main menu after Agree (uses your existing menu.py start handler)
     try:
-        from .menu import start as menu_start   # avoid circular import on module load
+        from .menu import start as menu_start
         await menu_start(c.message)
+    except Exception:
+        await c.message.answer("You’re set. Now send /start to open the menu.")
+    await c.answer()
     except Exception:
         await c.message.answer("You’re set. Now send /start to open the menu.")
 
