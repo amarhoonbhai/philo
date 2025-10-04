@@ -5,6 +5,8 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.types import Message
+from aiogram.client.default import DefaultBotProperties
+
 from aiogram.filters import CommandStart
 
 from ..common.config import MAIN_BOT_TOKEN
@@ -53,7 +55,7 @@ async def main():
     token = MAIN_BOT_TOKEN or os.getenv("MAIN_BOT_TOKEN")
     if not token:
         raise RuntimeError("MAIN_BOT_TOKEN is not set")
-    bot = Bot(token=token, parse_mode=ParseMode.HTML)
+    bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = build_dispatcher()
     logging.info("Spinify Main Bot starting polling…")
     await dp.start_polling(bot)
