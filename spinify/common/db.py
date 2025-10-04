@@ -5,13 +5,47 @@ from .config import DB_PATH
 Path(DB_PATH).touch(exist_ok=True)
 
 def _conn():
-    c = sqlite3.connect(DB_PATH)
+    """
+    Create a new SQLite connection with sensible concurrency settings.
+
+    By default SQLite allows only one writer at a time and will raise
+    `sqlite3.OperationalError: database is locked` when multiple concurrent
+    writes occur. To alleviate this in a multi‑tasking bot we:
+
+    * Increase the timeout so SQLite will wait for a short period when the
+      database is locked instead of failing immediately.
+    * Disable the thread check because aiogram handlers may operate in
+      different threads or executors.
+    * Set a busy timeout pragma to handle short lock contention periods.
+    * Enable WAL journal mode to allow concurrent readers while a write is
+      in progress. WAL also reduces the length of file locks.
+
+    These settings should reduce "database is locked" errors when multiple
+    handlers write to the database concurrently.
+    """
+    # Wait up to 30 seconds for a lock to clear, allow access from any thread
+    c = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
     c.row_factory = sqlite3.Row
+    # Configure connection for better concurrency
+    try:
+        c.execute("PRAGMA busy_timeout = 30000")  # 30 seconds
+        # Use Write‑Ahead Logging to allow concurrent reads/writes
+        c.execute("PRAGMA journal_mode=WAL")
+        c.execute("PRAGMA synchronous=NORMAL")
+    except sqlite3.OperationalError:
+        # PRAGMAs may fail on old SQLite versions; ignore if unsupported
+        pass
     return c
 
 # ---------- INIT ----------
 def init_core():
     c = _conn()
+    # Ensure the database is in WAL mode for better concurrent writes
+    try:
+        c.execute("PRAGMA journal_mode=WAL")
+        c.execute("PRAGMA synchronous=NORMAL")
+    except sqlite3.OperationalError:
+        pass
     c.executescript("""
     CREATE TABLE IF NOT EXISTS users(
       tg_id INTEGER PRIMARY KEY,
