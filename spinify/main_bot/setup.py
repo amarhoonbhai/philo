@@ -4,7 +4,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
-from .keyboards import setup_root_kb, groups_menu_kb, ads_menu_kb, sched_menu_kb
+from .keyboards import setup_root_kb, groups_menu_kb, ads_menu_kb, sched_menu_kb, main_menu
 from ..common.db import (
     add_group_link, list_groups_links, del_group_link, groups_count,
     add_ad, list_ads, del_ad, _conn,
@@ -195,4 +195,24 @@ async def sched_win_do(m: Message, state: FSMContext):
 @router.callback_query(F.data == "sched_info")
 async def sched_info(c: CallbackQuery):
     await c.answer("The engine runs 3 hours, pauses 1 hour, then repeats.", show_alert=True)
+
+# ---- Back from setup root ----
+@router.callback_query(F.data == "back_ads_home")
+async def cb_back_ads_home(c: CallbackQuery):
+    """
+    Handle the "Back" button from the setup screens. When users tap the
+    back arrow in the setup menu, return them to the main menu. This
+    implementation mirrors the behaviour of the back button in the Ads
+    Manager. It edits the current message and then sends the main menu
+    keyboard to the chat.
+    """
+    try:
+        # Edit the existing setup message to a minimal text to avoid clutter
+        await c.message.edit_text("Main menu:", parse_mode="HTML")
+    except Exception:
+        # If edit fails (e.g. message deleted), ignore
+        pass
+    # Send main menu keyboard in a new message
+    await c.message.answer("Main menu:", parse_mode="HTML", reply_markup=main_menu())
+    await c.answer()
   

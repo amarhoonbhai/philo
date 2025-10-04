@@ -90,8 +90,5 @@ async def cb_agree(c: CallbackQuery):
         await menu_start(c.message)
     except Exception:
         await c.message.answer("You’re set. Now send /start to open the menu.")
-    await c.answer()
-    except Exception:
-        await c.message.answer("You’re set. Now send /start to open the menu.")
-
+    # Always answer the callback last to clear Telegram's loading spinner
     await c.answer()
