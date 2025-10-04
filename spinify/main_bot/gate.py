@@ -8,6 +8,19 @@ from ..common.db import set_setting, get_setting, set_agreed
 
 router = Router()
 
+
+async def send_gate(m: Message) -> None:
+    """
+    Sends the gate message requiring users to join required channels and agree to the T&C.
+    Called by /start before opening the main menu.
+    """
+    text = (
+        "\U0001F6AA <b>Access Required</b>\n"
+        "Please join the required channels and then tap <b>I Agree</b> to continue."
+    )
+    kb = _kb(m.from_user.id)
+    await m.answer(text, reply_markup=kb)
+
 def _kb():
     pub = (GATE_PUBLIC_USERNAME or "").lstrip("@")
     return InlineKeyboardMarkup(inline_keyboard=[
